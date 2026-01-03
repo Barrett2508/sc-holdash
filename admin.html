@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Holiday Portal — Admin</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <h1>Holiday Portal</h1>
+          <small id="subhead">Admin Panel</small>
+        </div>
+      </div>
+      <div class="actions">
+        <a class="btn" href="dashboard.html">Dashboard</a>
+        <button class="btn danger" onclick="logout()">Logout</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Find user</h2>
+        <p class="muted">Search by Employee ID or name.</p>
+
+        <div class="form">
+          <div class="field">
+            <label>Search</label>
+            <input class="input" id="q" placeholder="e.g. 8512616 or Alan" />
+          </div>
+          <div class="row">
+            <button class="btn primary" id="searchBtn">Search</button>
+            <button class="btn" id="createBtn">Create user</button>
+          </div>
+        </div>
+
+        <div class="hr"></div>
+        <div id="results" class="muted">No results yet.</div>
+      </div>
+
+      <div class="card">
+        <h2>Admin actions</h2>
+        <p class="muted">Select a user from the results to manage them.</p>
+
+        <div class="badge" id="selectedBadge">No user selected</div>
+        <div style="height:10px"></div>
+
+        <div class="form">
+          <div class="field">
+            <label>Update Employee ID</label>
+            <input class="input" id="newPayroll" placeholder="New Employee ID" />
+          </div>
+          <button class="btn" id="updatePayrollBtn" disabled>Update payroll number</button>
+
+          <div class="hr"></div>
+
+          <button class="btn primary" id="resetBtn" disabled>Generate reset code</button>
+          <div class="small muted" id="resetOut" style="margin-top:10px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script src="app.js"></script>
+  <script>
+    let selected = null;
+
+    (async () => {
+      const user = await requireAuth({ adminOnly: true });
+      if (!user) return;
+      document.getElementById("subhead").textContent = `Admin Panel • Logged in as ${user.payroll_number}`;
+    })();
+
+    function renderResults(matches){
+      const el = document.getElementById("results");
+      if (!matches || !matches.length){
+        el.innerHTML = `<div class="badge warn">No matching users found.</div>`;
+        return;
+      }
+      const rows = matches.map(u => `
+        <tr>
+          <td><button class="btn" data-p="${escapeHtml(u.payroll_number)}" style="padding:8px 10px;">Select</button></td>
+          <td>${escapeHtml(u.payroll_number)}</td>
+          <td>${escapeHtml(u.name || "")}</td>
+          <td><span class="badge ${u.role === "admin" ? "ok" : ""}">${escapeHtml(u.role)}</span></td>
+          <td>${u.force_reset ? `<span class="badge warn">Force reset</span>` : `<span class="badge ok">OK</span>`}</td>
+        </tr>
+      `).join("");
+
+      el.innerHTML = `
+        <table class="table">
+          <thead>
+            <tr>
+              <th></th><th>Employee ID</th><th>Name</th><th>Role</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+
+      el.querySelectorAll("button[data-p]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const p = btn.getAttribute("data-p");
+          selected = matches.find(x => String(x.payroll_number) === String(p));
+          document.getElementById("selectedBadge").textContent =
+            `Selected: ${selected.payroll_number} ${selected.name ? "• " + selected.name : ""}`;
+          document.getElementById("updatePayrollBtn").disabled = false;
+          document.getElementById("resetBtn").disabled = false;
+          document.getElementById("resetOut").textContent = "";
+        });
+      });
+    }
+
+    document.getElementById("searchBtn").addEventListener("click", async () => {
+      const token = getToken();
+      const query = document.getElementById("q").value.trim();
+      if (!query) return toast("Missing search", "Enter an Employee ID or name.", "err");
+
+      const out = await api("adminSearchUser", { token, query });
+      if (!out.ok) return toast("Search failed", out.error || "Try again.", "err");
+
+      renderResults(out.matches);
+    });
+
+    document.getElementById("updatePayrollBtn").addEventListener("click", async () => {
+      if (!selected) return;
+      const token = getToken();
+      const new_payroll_number = document.getElementById("newPayroll").value.trim();
+      if (!new_payroll_number) return toast("Missing new ID", "Enter the new Employee ID.", "err");
+
+      const out = await api("adminUpdatePayroll", {
+        token,
+        old_payroll_number: selected.payroll_number,
+        new_payroll_number
+      });
+
+      if (!out.ok) return toast("Update failed", out.error || "Try again.", "err");
+
+      toast("Updated", `Employee ID changed to ${new_payroll_number}.`, "ok");
+      selected.payroll_number = new_payroll_number;
+      document.getElementById("selectedBadge").textContent =
+        `Selected: ${selected.payroll_number} ${selected.name ? "• " + selected.name : ""}`;
+    });
+
+    document.getElementById("resetBtn").addEventListener("click", async () => {
+      if (!selected) return;
+      const token = getToken();
+
+      const out = await api("adminResetPassword", { token, payroll_number: selected.payroll_number });
+      if (!out.ok) return toast("Reset failed", out.error || "Try again.", "err");
+
+      document.getElementById("resetOut").innerHTML =
+        `<span class="badge ok">Reset code: ${escapeHtml(out.reset_code)}</span>
+         <div class="small muted" style="margin-top:8px;">Expires in ${escapeHtml(out.expires_minutes)} minutes. User sets password on <b>reset.html</b>.</div>`;
+      toast("Reset code generated", "Give the code to the employee.", "ok");
+    });
+
+    document.getElementById("createBtn").addEventListener("click", async () => {
+      const payroll_number = prompt("New Employee ID (payroll number):");
+      if (!payroll_number) return;
+      const name = prompt("Name (optional):") || "";
+      const role = prompt("Role: user or admin (default user):") || "user";
+
+      const out = await api("adminCreateUser", { token: getToken(), payroll_number, name, role });
+      if (!out.ok) return toast("Create failed", out.error || "Try again.", "err");
+
+      toast("User created", "Now generate a reset code to set their password.", "ok");
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Holiday Portal — Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <h1>Holiday Portal</h1>
+          <small id="subhead">Loading…</small>
+        </div>
+      </div>
+      <div class="actions">
+        <a class="btn" id="adminBtn" href="admin.html" style="display:none;">Admin</a>
+        <button class="btn danger" onclick="logout()">Logout</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Your holiday submissions</h2>
+        <p class="muted">This reads directly from your Google Form response sheet (Employee ID: + week selections).</p>
+
+        <div id="submissionsWrap" class="muted">Loading…</div>
+      </div>
+
+      <div class="card">
+        <h2>Summary</h2>
+        <p class="muted">Quick counts based on your submissions.</p>
+
+        <div class="kpis">
+          <div class="kpi">
+            <div class="num" id="kpiSub">—</div>
+            <div class="label">Submissions found</div>
+          </div>
+          <div class="kpi">
+            <div class="num" id="kpiWeeks">—</div>
+            <div class="label">Weeks selected (total)</div>
+          </div>
+          <div class="kpi">
+            <div class="num" id="kpiLast">—</div>
+            <div class="label">Latest submission</div>
+          </div>
+        </div>
+
+        <div class="hr"></div>
+        <div class="badge">Employee ID-based login</div>
+        <div style="height:10px"></div>
+        <div class="badge">Glass UI • Dark + Electric Blue</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script src="app.js"></script>
+  <script>
+    (async () => {
+      const user = await requireAuth();
+      if (!user) return;
+
+      document.getElementById("subhead").textContent = `Signed in as Employee ID ${user.payroll_number}`;
+      if (user.role === "admin") document.getElementById("adminBtn").style.display = "inline-flex";
+
+      const token = getToken();
+      const out = await api("myHolidays", { token });
+
+      if (!out.ok) {
+        return toast("Could not load holidays", out.error || "Try again.", "err");
+      }
+
+      const subs = out.submissions || [];
+      document.getElementById("kpiSub").textContent = String(subs.length);
+
+      let weeksCount = 0;
+      let latest = "";
+      const wrap = document.getElementById("submissionsWrap");
+
+      if (!subs.length) {
+        wrap.innerHTML = `<div class="badge warn">No submissions found for your Employee ID.</div>`;
+        document.getElementById("kpiWeeks").textContent = "0";
+        document.getElementById("kpiLast").textContent = "—";
+        return;
+      }
+
+      const rows = subs.map(s => {
+        const weeks = s.weeks || {};
+        const vals = Object.values(weeks).map(v => String(v || "").trim()).filter(Boolean);
+        weeksCount += vals.length;
+        latest = s.submitted_at || latest;
+
+        return `
+          <tr>
+            <td>${escapeHtml(s.submitted_at || "—")}</td>
+            <td>${escapeHtml(weeks["First Week:"] || "")}</td>
+            <td>${escapeHtml(weeks["Second Week:"] || "")}</td>
+            <td>${escapeHtml(weeks["Third Week:"] || "")}</td>
+            <td>${escapeHtml(weeks["Fourth Week:"] || "")}</td>
+            <td>${escapeHtml(weeks["Fifth Week:"] || "")}</td>
+          </tr>
+        `;
+      }).join("");
+
+      wrap.innerHTML = `
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Submitted</th>
+              <th>First Week</th>
+              <th>Second Week</th>
+              <th>Third Week</th>
+              <th>Fourth Week</th>
+              <th>Fifth Week</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+
+      document.getElementById("kpiWeeks").textContent = String(weeksCount);
+      document.getElementById("kpiLast").textContent = latest ? String(latest) : "—";
+    })();
+  </script>
+</body>
+</html>

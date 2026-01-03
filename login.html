@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Holiday Portal — Login</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <h1>Holiday Portal</h1>
+          <small>Employee login • Employee ID only</small>
+        </div>
+      </div>
+      <div class="actions">
+        <a class="btn" href="reset.html">Reset with code</a>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Sign in</h2>
+        <p>Use your <b>Employee ID</b> (payroll number) and password to view your booked holidays.</p>
+
+        <form id="loginForm" class="form">
+          <div class="field">
+            <label>Employee ID</label>
+            <input class="input" id="payroll" autocomplete="username" inputmode="numeric" placeholder="e.g. 8512616" />
+          </div>
+
+          <div class="field">
+            <label>Password</label>
+            <input class="input" id="password" type="password" autocomplete="current-password" placeholder="Your password" />
+          </div>
+
+          <div class="row">
+            <button class="btn primary" type="submit">Login</button>
+            <a class="btn" href="reset.html">Got a reset code?</a>
+          </div>
+          <div class="small muted">
+            If you don’t have a password yet, ask your admin for a reset code.
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>What you’ll see</h2>
+        <p>After login you’ll be able to:</p>
+        <div class="hr"></div>
+        <ul class="muted" style="line-height:1.7; margin:0; padding-left:18px;">
+          <li>View your holiday submissions and selected weeks</li>
+          <li>See what you’ve requested over time (by submission)</li>
+          <li>Admins can reset passwords and adjust Employee IDs</li>
+        </ul>
+        <div class="hr"></div>
+        <div class="badge">Secure login via Apps Script API</div>
+        <div style="height:10px"></div>
+        <div class="badge">Glassmorphism UI</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script src="app.js"></script>
+  <script>
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const payroll_number = document.getElementById("payroll").value.trim();
+      const password = document.getElementById("password").value;
+
+      if (!payroll_number || !password) {
+        return toast("Missing info", "Please enter Employee ID and password.", "err");
+      }
+
+      const out = await api("login", { payroll_number, password });
+      if (!out.ok) return toast("Login failed", out.error || "Invalid login.", "err");
+
+      setToken(out.token);
+
+      if (out.user.role === "admin") return (location.href = "admin.html");
+      return (location.href = "dashboard.html");
+    });
+  </script>
+</body>
+</html>

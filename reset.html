@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Holiday Portal — Reset Password</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <h1>Holiday Portal</h1>
+          <small>Password reset • Use admin reset code</small>
+        </div>
+      </div>
+      <div class="actions">
+        <a class="btn" href="login.html">Back to login</a>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:18px;">
+      <h2>Set a new password</h2>
+      <p>Your admin gives you a <b>6-digit reset code</b>. It expires after 15 minutes.</p>
+
+      <form id="resetForm" class="form" style="max-width:540px;">
+        <div class="field">
+          <label>Employee ID</label>
+          <input class="input" id="payroll" inputmode="numeric" placeholder="e.g. 8512616" />
+        </div>
+        <div class="field">
+          <label>Reset code</label>
+          <input class="input" id="code" inputmode="numeric" placeholder="6-digit code" />
+        </div>
+        <div class="field">
+          <label>New password</label>
+          <input class="input" id="newpass" type="password" placeholder="Create a strong password" />
+        </div>
+        <div class="row">
+          <button class="btn primary" type="submit">Set password</button>
+          <a class="btn" href="login.html">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script src="app.js"></script>
+  <script>
+    document.getElementById("resetForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const payroll_number = document.getElementById("payroll").value.trim();
+      const reset_code = document.getElementById("code").value.trim();
+      const new_password = document.getElementById("newpass").value;
+
+      if (!payroll_number || !reset_code || !new_password) {
+        return toast("Missing info", "Fill in all fields.", "err");
+      }
+
+      const out = await api("setPasswordWithResetCode", { payroll_number, reset_code, new_password });
+      if (!out.ok) return toast("Reset failed", out.error || "Could not set password.", "err");
+
+      toast("Password set", "You can now login.", "ok");
+      setTimeout(() => location.href = "login.html", 900);
+    });
+  </script>
+</body>
+</html>
