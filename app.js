@@ -9,9 +9,18 @@ async function api(action, payload = {}) {
     headers: { "Content-Type": "text/plain;charset=utf-8" },
     body: JSON.stringify({ action, ...payload })
   });
-  const data = await res.json().catch(() => ({ ok: false, error: "Bad JSON response" }));
-  return data;
+
+  const text = await res.text();
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    // Show a snippet of what came back (usually an HTML login page)
+    toast("Bad response from API", text.slice(0, 180) + "…", "err");
+    return { ok: false, error: "Bad JSON response" };
+  }
 }
+
 
 // ====== STORAGE ======
 function setToken(token) { localStorage.setItem("holiday_token", token); }
