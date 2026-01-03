@@ -1,5 +1,5 @@
 // ====== CONFIG ======
-const API_URL = "PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE";
+const API_URL = "https://script.google.com/macros/s/AKfycbzneLSmRXrYc2qOtGON0e6t2vFliFpAz9s20TSenhVlBKFvkk_dDepe98jUKhx0xd-j/exec";
 
 // IMPORTANT:
 // We use Content-Type: text/plain to avoid CORS preflight issues from GitHub Pages.
